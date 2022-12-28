@@ -20,6 +20,7 @@ type Config struct {
 	Senders            int             `short:"s" long:"senders" default:"1000" description:"Number of send goroutines to use"`
 	Debug              bool            `long:"debug" description:"Include debug fields in the output."`
 	Flush              bool            `long:"flush" description:"Flush after each line of output."`
+	NSQMode            bool            `long:"nsq-mode" description:"Use NSQ Input"`
 	GOMAXPROCS         int             `long:"gomaxprocs" default:"0" description:"Set GOMAXPROCS"`
 	ConnectionsPerHost int             `long:"connections-per-host" default:"1" description:"Number of times to connect to each host (results in more output)"`
 	ReadLimitPerHost   int             `long:"read-limit-per-host" default:"96" description:"Maximum total kilobytes to read for a single host (default 96kb)"`
@@ -62,14 +63,18 @@ func validateFrameworkConfiguration() {
 		}
 		log.SetOutput(config.logFile)
 	}
-	SetInputFunc(InputTargetsCSV)
 
-	if config.InputFileName == "-" {
-		config.inputFile = os.Stdin
+	if config.NSQMode {
+		SetInputFunc(InputTargetsNSQStream)
 	} else {
-		var err error
-		if config.inputFile, err = os.Open(config.InputFileName); err != nil {
-			log.Fatal(err)
+		SetInputFunc(InputTargetsCSV)
+		if config.InputFileName == "-" {
+			config.inputFile = os.Stdin
+		} else {
+			var err error
+			if config.inputFile, err = os.Open(config.InputFileName); err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
 

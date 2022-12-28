@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
+	"github.com/nsqio/go-nsq"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -78,6 +82,66 @@ func duplicateIP(ip net.IP) net.IP {
 	dup := make(net.IP, len(ip))
 	copy(dup, ip)
 	return dup
+}
+
+func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string) {
+	s := strings.SplitN(line, ",", 2)
+	if ip := net.ParseIP(s[0]); ip != nil {
+		ipnet = &net.IPNet{IP: ip}
+	}
+	if len(s) == 1 {
+		domain = ""
+		return
+	}
+	domain = s[1]
+	return
+}
+
+func InputTargetsNSQStream(ch chan<- ScanTarget) error {
+	// Instantiate a consumer that will subscribe to the provided channel.
+	consumer, err := nsq.NewConsumer("zdns", "done", nsq.NewConfig())
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	consumer.SetLoggerLevel(nsq.LogLevelError)
+
+	// Set the Handler for messages received by this Consumer. Can be called multiple times.
+	// See also AddConcurrentHandlers.
+	consumer.AddHandler(nsq.HandlerFunc(func(m *nsq.Message) error {
+		// handle the message
+		ipnet, domain, tag := parseInputLine(string(m.Body))
+		var ip net.IP
+		if ipnet != nil {
+			if ipnet.Mask != nil {
+				// expand CIDR block into one target for each IP
+				for ip = ipnet.IP.Mask(ipnet.Mask); ipnet.Contains(ip); incrementIP(ip) {
+					ch <- ScanTarget{IP: duplicateIP(ip), Domain: domain, Tag: tag}
+				}
+			} else {
+				ip = ipnet.IP
+			}
+		}
+		ch <- ScanTarget{IP: ip, Domain: domain, Tag: tag}
+		return nil
+	}))
+
+	// Use nsqlookupd to discover nsqd instances.
+	// See also ConnectToNSQD, ConnectToNSQDs, ConnectToNSQLookupds.
+	err = consumer.ConnectToNSQLookupd("localhost:4161")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// wait for signal to exit
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
+
+	// Gracefully stop the consumer.
+	consumer.Stop()
+
+	return nil
 }
 
 // InputTargetsCSV is an InputTargetsFunc that calls GetTargetsCSV with
