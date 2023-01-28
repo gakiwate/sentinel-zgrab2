@@ -3,6 +3,8 @@ package zgrab2
 import (
 	"bufio"
 	"fmt"
+	"github.com/nsqio/go-nsq"
+	log "github.com/sirupsen/logrus"
 	"io"
 )
 
@@ -155,6 +157,28 @@ func OutputResults(w *bufio.Writer, results <-chan []byte) error {
 		}
 		if config.Flush {
 			w.Flush()
+		}
+	}
+	return nil
+}
+
+func OutputResultsNSQWriterFunc(topicName string) OutputResultsFunc {
+	return func(result <-chan []byte) error {
+		return OutputNSQStream(topicName, result)
+	}
+}
+
+// Add a output to NSQ function
+func OutputNSQStream(topicName string, results <-chan []byte) error {
+	config := nsq.NewConfig()
+	producer, err := nsq.NewProducer("127.0.0.1:4150", config)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for result := range results {
+		err = producer.Publish(topicName, result)
+		if err != nil {
+			log.Fatal(err)
 		}
 	}
 	return nil

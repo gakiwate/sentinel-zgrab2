@@ -21,6 +21,7 @@ type Config struct {
 	Debug              bool            `long:"debug" description:"Include debug fields in the output."`
 	Flush              bool            `long:"flush" description:"Flush after each line of output."`
 	NSQMode            bool            `long:"nsq-mode" description:"Use NSQ Input"`
+	NSQTopicName       string          `long:"nsq-topic-name" default:"zgrabResults" description:"Set NSQ output topic name"`
 	GOMAXPROCS         int             `long:"gomaxprocs" default:"0" description:"Set GOMAXPROCS"`
 	ConnectionsPerHost int             `long:"connections-per-host" default:"1" description:"Number of times to connect to each host (results in more output)"`
 	ReadLimitPerHost   int             `long:"read-limit-per-host" default:"96" description:"Maximum total kilobytes to read for a single host (default 96kb)"`
@@ -66,6 +67,8 @@ func validateFrameworkConfiguration() {
 
 	if config.NSQMode {
 		SetInputFunc(InputTargetsNSQStream)
+		outputFunc := OutputResultsNSQWriterFunc(config.NSQTopicName)
+		SetOutputFunc(outputFunc)
 	} else {
 		SetInputFunc(InputTargetsCSV)
 		if config.InputFileName == "-" {
@@ -76,18 +79,17 @@ func validateFrameworkConfiguration() {
 				log.Fatal(err)
 			}
 		}
-	}
-
-	if config.OutputFileName == "-" {
-		config.outputFile = os.Stdout
-	} else {
-		var err error
-		if config.outputFile, err = os.Create(config.OutputFileName); err != nil {
-			log.Fatal(err)
+		if config.OutputFileName == "-" {
+			config.outputFile = os.Stdout
+		} else {
+			var err error
+			if config.outputFile, err = os.Create(config.OutputFileName); err != nil {
+				log.Fatal(err)
+			}
 		}
+		outputFunc := OutputResultsWriterFunc(config.outputFile)
+		SetOutputFunc(outputFunc)
 	}
-	outputFunc := OutputResultsWriterFunc(config.outputFile)
-	SetOutputFunc(outputFunc)
 
 	if config.MetaFileName == "-" {
 		config.metaFile = os.Stderr
