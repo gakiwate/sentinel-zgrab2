@@ -20,8 +20,9 @@ type Config struct {
 	Senders            int             `short:"s" long:"senders" default:"1000" description:"Number of send goroutines to use"`
 	Debug              bool            `long:"debug" description:"Include debug fields in the output."`
 	Flush              bool            `long:"flush" description:"Flush after each line of output."`
-	NSQMode            bool            `long:"nsq-mode" description:"Use NSQ Input"`
-	NSQTopicName       string          `long:"nsq-topic-name" default:"-" description:"Set NSQ output topic name"`
+	NSQMode            bool            `long:"nsq-mode" description:"Use NSQ Input."`
+	NsqZgrabOutTopic   string          `long:"nsq-zgrab-out-topic" default:"zgrab_results" description:"Set NSQ output topic name"`
+	NsqHost            string          `long:"nsq-host" default:"localhost" description:"IP address of machine running nslookupd"`
 	GOMAXPROCS         int             `long:"gomaxprocs" default:"0" description:"Set GOMAXPROCS"`
 	ConnectionsPerHost int             `long:"connections-per-host" default:"1" description:"Number of times to connect to each host (results in more output)"`
 	ReadLimitPerHost   int             `long:"read-limit-per-host" default:"96" description:"Maximum total kilobytes to read for a single host (default 96kb)"`
@@ -65,9 +66,11 @@ func validateFrameworkConfiguration() {
 		log.SetOutput(config.logFile)
 	}
 
+	var outputFunc OutputResultsFunc
 	if config.NSQMode {
 		// Sets the input to come from NSQ stream
 		SetInputFunc(InputTargetsNSQStream)
+		outputFunc = OutputResultsNSQWriterFunc(config.NsqZgrabOutTopic, config.NsqHost)
 	} else {
 		SetInputFunc(InputTargetsCSV)
 		if config.InputFileName == "-" {
@@ -78,13 +81,6 @@ func validateFrameworkConfiguration() {
 				log.Fatal(err)
 			}
 		}
-	}
-
-	var outputFunc OutputResultsFunc
-	if config.NSQTopicName != "-" {
-		// Sets the output to be published to an NSQ stream
-		outputFunc = OutputResultsNSQWriterFunc(config.NSQTopicName)
-	} else {
 		if config.OutputFileName == "-" {
 			config.outputFile = os.Stdout
 		} else {

@@ -162,16 +162,17 @@ func OutputResults(w *bufio.Writer, results <-chan []byte) error {
 	return nil
 }
 
-func OutputResultsNSQWriterFunc(topicName string) OutputResultsFunc {
+func OutputResultsNSQWriterFunc(topicName string, nsqHost string) OutputResultsFunc {
 	return func(result <-chan []byte) error {
-		return OutputNSQStream(topicName, result)
+		return OutputNSQStream(topicName, nsqHost, result)
 	}
 }
 
 // Add a output to NSQ function
-func OutputNSQStream(topicName string, results <-chan []byte) error {
+func OutputNSQStream(topicName string, nsqHost string, results <-chan []byte) error {
 	config := nsq.NewConfig()
-	producer, err := nsq.NewProducer("127.0.0.1:4150", config)
+	nsqUrl := fmt.Sprintf("%s:4150", nsqHost)
+	producer, err := nsq.NewProducer(nsqUrl, config)
 	if err != nil {
 		log.Fatal(err)
 	}
