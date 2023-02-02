@@ -18,7 +18,8 @@ import (
 // returns the specified ipnet, domain, and tag, or an error.
 //
 // ZGrab2 input files have three fields:
-//   IP, DOMAIN, TAG
+//
+//	IP, DOMAIN, TAG
 //
 // Each line specifies a target to scan by its IP address, domain
 // name, or both, as well as an optional tag used to determine which
@@ -30,7 +31,6 @@ import (
 //
 // Trailing empty fields may be omitted.
 // Comment lines begin with #, and empty lines are ignored.
-//
 func ParseCSVTarget(fields []string) (ipnet *net.IPNet, domain string, tag string, err error) {
 	for i := range fields {
 		fields[i] = strings.TrimSpace(fields[i])
@@ -85,7 +85,7 @@ func duplicateIP(ip net.IP) net.IP {
 }
 
 func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string) {
-	s := strings.SplitN(line, ",", 2)
+	s := strings.SplitN(line, ",", 3)
 	if ip := net.ParseIP(s[0]); ip != nil {
 		ipnet = &net.IPNet{IP: ip}
 	}
@@ -94,12 +94,15 @@ func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string) {
 		return
 	}
 	domain = s[1]
+	if len(s) == 3 {
+		tag = s[2]
+	}
 	return
 }
 
 func InputTargetsNSQStream(ch chan<- ScanTarget) error {
 	// Instantiate a consumer that will subscribe to the provided channel.
-	consumer, err := nsq.NewConsumer("zdns", "done", nsq.NewConfig())
+	consumer, err := nsq.NewConsumer("zgrab", "done", nsq.NewConfig())
 	if err != nil {
 		log.Fatal(err)
 		return err
