@@ -2,6 +2,7 @@ package zgrab2
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -84,19 +85,22 @@ func duplicateIP(ip net.IP) net.IP {
 	return dup
 }
 
+type Input struct {
+	Domain string `json:"sni"`
+	IP     string `json:"ip"`
+}
+
 func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string) {
-	s := strings.SplitN(line, ",", 3)
-	if ip := net.ParseIP(s[0]); ip != nil {
-		ipnet = &net.IPNet{IP: ip}
-	}
-	if len(s) == 1 {
-		domain = ""
+	var input Input
+	err := json.Unmarshal([]byte(line), &input)
+	if err != nil {
+		fmt.Println("Error parsing JSON:", err)
 		return
 	}
-	domain = s[1]
-	if len(s) == 3 {
-		tag = s[2]
+	if ip := net.ParseIP(input.IP); ip != nil {
+		ipnet = &net.IPNet{IP: ip}
 	}
+	domain = input.Domain
 	return
 }
 
