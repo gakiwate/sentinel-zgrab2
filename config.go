@@ -69,7 +69,8 @@ func validateFrameworkConfiguration() {
 	var outputFunc OutputResultsFunc
 	if config.NSQMode {
 		// Sets the input to come from NSQ stream
-		SetInputFunc(InputTargetsNSQStream)
+		//SetInputFunc(InputTargetsNSQStream)
+		SetInputFunc(InputTargetsNSQWriterFunc(config.NsqHost))
 		outputFunc = OutputResultsNSQWriterFunc(config.NsqZgrabOutTopic, config.NsqHost)
 	} else {
 		SetInputFunc(InputTargetsCSV)

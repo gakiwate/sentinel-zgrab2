@@ -104,7 +104,13 @@ func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string) {
 	return
 }
 
-func InputTargetsNSQStream(ch chan<- ScanTarget) error {
+func InputTargetsNSQWriterFunc(nsqHost string) InputTargetsFunc {
+	return func(ch chan<- ScanTarget) error {
+		return InputTargetsNSQStream(nsqHost, ch)
+	}
+}
+
+func InputTargetsNSQStream(nsqHost string, ch chan<- ScanTarget) error {
 	// Instantiate a consumer that will subscribe to the provided channel.
 	consumer, err := nsq.NewConsumer("zgrab", "done", nsq.NewConfig())
 	if err != nil {
@@ -135,7 +141,8 @@ func InputTargetsNSQStream(ch chan<- ScanTarget) error {
 
 	// Use nsqlookupd to discover nsqd instances.
 	// See also ConnectToNSQD, ConnectToNSQDs, ConnectToNSQLookupds.
-	err = consumer.ConnectToNSQLookupd("localhost:4161")
+	nsqUrl := fmt.Sprintf("%s:4161", nsqHost)
+	err = consumer.ConnectToNSQLookupd(nsqUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
