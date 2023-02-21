@@ -110,8 +110,8 @@ func InputTargetsNSQWriterFunc(nsqHost string) InputTargetsFunc {
 }
 
 func InputTargetsNSQStream(nsqHost string, ch chan<- ScanTarget) error {
-	// Instantiate a consumer that will subscribe to the provided channel.
-	consumer, err := nsq.NewConsumer("zgrab", "done", nsq.NewConfig())
+	// Instantiate a consumer that will subscribe to the provided topic and channel.
+	consumer, err := nsq.NewConsumer(config.NSQInputTopic, "done", nsq.NewConfig())
 	if err != nil {
 		log.Fatal(err)
 		return err

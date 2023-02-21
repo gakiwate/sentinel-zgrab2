@@ -22,6 +22,7 @@ type Config struct {
 	Flush              bool            `long:"flush" description:"Flush after each line of output."`
 	NSQMode            bool            `long:"nsq-mode" description:"Use NSQ Input."`
 	NSQOutputTopic     string          `long:"nsq-output-topic" default:"zgrab_results" description:"Set NSQ output topic name"`
+	NSQInputTopic      string          `long:"nsq-input-topic" default:"zgrab" description:"Set NSQ input topic name"`
 	NSQHost            string          `long:"nsq-host" default:"localhost" description:"IP address of machine running nslookupd"`
 	GOMAXPROCS         int             `long:"gomaxprocs" default:"0" description:"Set GOMAXPROCS"`
 	ConnectionsPerHost int             `long:"connections-per-host" default:"1" description:"Number of times to connect to each host (results in more output)"`
@@ -69,8 +70,8 @@ func validateFrameworkConfiguration() {
 	var outputFunc OutputResultsFunc
 	if config.NSQMode {
 		// Sets the input to come from NSQ stream
-		SetInputFunc(InputTargetsNSQWriterFunc(config.NsqHost))
-		outputFunc = OutputResultsNSQWriterFunc(config.NsqZgrabOutTopic, config.NsqHost)
+		SetInputFunc(InputTargetsNSQWriterFunc(config.NSQHost))
+		outputFunc = OutputResultsNSQWriterFunc(config.NSQOutputTopic, config.NSQHost)
 	} else {
 		SetInputFunc(InputTargetsCSV)
 		if config.InputFileName == "-" {
