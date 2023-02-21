@@ -19,8 +19,7 @@ import (
 // returns the specified ipnet, domain, and tag, or an error.
 //
 // ZGrab2 input files have three fields:
-//
-//	IP, DOMAIN, TAG
+// IP, DOMAIN, TAG
 //
 // Each line specifies a target to scan by its IP address, domain
 // name, or both, as well as an optional tag used to determine which

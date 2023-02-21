@@ -21,8 +21,8 @@ type Config struct {
 	Debug              bool            `long:"debug" description:"Include debug fields in the output."`
 	Flush              bool            `long:"flush" description:"Flush after each line of output."`
 	NSQMode            bool            `long:"nsq-mode" description:"Use NSQ Input."`
-	NsqZgrabOutTopic   string          `long:"nsq-zgrab-out-topic" default:"zgrab_results" description:"Set NSQ output topic name"`
-	NsqHost            string          `long:"nsq-host" default:"localhost" description:"IP address of machine running nslookupd"`
+	NSQOutputTopic     string          `long:"nsq-output-topic" default:"zgrab_results" description:"Set NSQ output topic name"`
+	NSQHost            string          `long:"nsq-host" default:"localhost" description:"IP address of machine running nslookupd"`
 	GOMAXPROCS         int             `long:"gomaxprocs" default:"0" description:"Set GOMAXPROCS"`
 	ConnectionsPerHost int             `long:"connections-per-host" default:"1" description:"Number of times to connect to each host (results in more output)"`
 	ReadLimitPerHost   int             `long:"read-limit-per-host" default:"96" description:"Maximum total kilobytes to read for a single host (default 96kb)"`
@@ -69,7 +69,6 @@ func validateFrameworkConfiguration() {
 	var outputFunc OutputResultsFunc
 	if config.NSQMode {
 		// Sets the input to come from NSQ stream
-		//SetInputFunc(InputTargetsNSQStream)
 		SetInputFunc(InputTargetsNSQWriterFunc(config.NsqHost))
 		outputFunc = OutputResultsNSQWriterFunc(config.NsqZgrabOutTopic, config.NsqHost)
 	} else {
