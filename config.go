@@ -20,7 +20,10 @@ type Config struct {
 	Senders            int             `short:"s" long:"senders" default:"1000" description:"Number of send goroutines to use"`
 	Debug              bool            `long:"debug" description:"Include debug fields in the output."`
 	Flush              bool            `long:"flush" description:"Flush after each line of output."`
-	NSQMode            bool            `long:"nsq-mode" description:"Use NSQ Input"`
+	NSQMode            bool            `long:"nsq-mode" description:"Use NSQ Input."`
+	NSQOutputTopic     string          `long:"nsq-output-topic" default:"zgrab_results" description:"Set NSQ output topic name"`
+	NSQInputTopic      string          `long:"nsq-input-topic" default:"zgrab" description:"Set NSQ input topic name"`
+	NSQHost            string          `long:"nsq-host" default:"localhost" description:"IP address of machine running nslookupd"`
 	GOMAXPROCS         int             `long:"gomaxprocs" default:"0" description:"Set GOMAXPROCS"`
 	ConnectionsPerHost int             `long:"connections-per-host" default:"1" description:"Number of times to connect to each host (results in more output)"`
 	ReadLimitPerHost   int             `long:"read-limit-per-host" default:"96" description:"Maximum total kilobytes to read for a single host (default 96kb)"`
@@ -64,8 +67,11 @@ func validateFrameworkConfiguration() {
 		log.SetOutput(config.logFile)
 	}
 
+	var outputFunc OutputResultsFunc
 	if config.NSQMode {
-		SetInputFunc(InputTargetsNSQStream)
+		// Sets the input to come from NSQ stream
+		SetInputFunc(InputTargetsNSQWriterFunc(config.NSQHost))
+		outputFunc = OutputResultsNSQWriterFunc(config.NSQOutputTopic, config.NSQHost)
 	} else {
 		SetInputFunc(InputTargetsCSV)
 		if config.InputFileName == "-" {
@@ -76,17 +82,16 @@ func validateFrameworkConfiguration() {
 				log.Fatal(err)
 			}
 		}
-	}
-
-	if config.OutputFileName == "-" {
-		config.outputFile = os.Stdout
-	} else {
-		var err error
-		if config.outputFile, err = os.Create(config.OutputFileName); err != nil {
-			log.Fatal(err)
+		if config.OutputFileName == "-" {
+			config.outputFile = os.Stdout
+		} else {
+			var err error
+			if config.outputFile, err = os.Create(config.OutputFileName); err != nil {
+				log.Fatal(err)
+			}
 		}
+		outputFunc = OutputResultsWriterFunc(config.outputFile)
 	}
-	outputFunc := OutputResultsWriterFunc(config.outputFile)
 	SetOutputFunc(outputFunc)
 
 	if config.MetaFileName == "-" {

@@ -2,6 +2,7 @@ package zgrab2
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -18,7 +19,7 @@ import (
 // returns the specified ipnet, domain, and tag, or an error.
 //
 // ZGrab2 input files have three fields:
-//   IP, DOMAIN, TAG
+// IP, DOMAIN, TAG
 //
 // Each line specifies a target to scan by its IP address, domain
 // name, or both, as well as an optional tag used to determine which
@@ -30,7 +31,6 @@ import (
 //
 // Trailing empty fields may be omitted.
 // Comment lines begin with #, and empty lines are ignored.
-//
 func ParseCSVTarget(fields []string) (ipnet *net.IPNet, domain string, tag string, err error) {
 	for i := range fields {
 		fields[i] = strings.TrimSpace(fields[i])
@@ -84,22 +84,34 @@ func duplicateIP(ip net.IP) net.IP {
 	return dup
 }
 
+type Input struct {
+	Domain string `json:"sni"`
+	IP     string `json:"ip"`
+}
+
 func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string) {
-	s := strings.SplitN(line, ",", 2)
-	if ip := net.ParseIP(s[0]); ip != nil {
-		ipnet = &net.IPNet{IP: ip}
-	}
-	if len(s) == 1 {
-		domain = ""
+	var input Input
+	err := json.Unmarshal([]byte(line), &input)
+	if err != nil {
+		fmt.Println("Error parsing JSON:", err)
 		return
 	}
-	domain = s[1]
+	if ip := net.ParseIP(input.IP); ip != nil {
+		ipnet = &net.IPNet{IP: ip}
+	}
+	domain = input.Domain
 	return
 }
 
-func InputTargetsNSQStream(ch chan<- ScanTarget) error {
-	// Instantiate a consumer that will subscribe to the provided channel.
-	consumer, err := nsq.NewConsumer("zdns", "done", nsq.NewConfig())
+func InputTargetsNSQWriterFunc(nsqHost string) InputTargetsFunc {
+	return func(ch chan<- ScanTarget) error {
+		return InputTargetsNSQStream(nsqHost, ch)
+	}
+}
+
+func InputTargetsNSQStream(nsqHost string, ch chan<- ScanTarget) error {
+	// Instantiate a consumer that will subscribe to the provided topic and channel.
+	consumer, err := nsq.NewConsumer(config.NSQInputTopic, "done", nsq.NewConfig())
 	if err != nil {
 		log.Fatal(err)
 		return err
@@ -128,7 +140,8 @@ func InputTargetsNSQStream(ch chan<- ScanTarget) error {
 
 	// Use nsqlookupd to discover nsqd instances.
 	// See also ConnectToNSQD, ConnectToNSQDs, ConnectToNSQLookupds.
-	err = consumer.ConnectToNSQLookupd("localhost:4161")
+	nsqUrl := fmt.Sprintf("%s:4161", nsqHost)
+	err = consumer.ConnectToNSQLookupd(nsqUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
