@@ -10,6 +10,8 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
+	"strconv"
 
 	"github.com/nsqio/go-nsq"
 	log "github.com/sirupsen/logrus"
@@ -87,9 +89,11 @@ func duplicateIP(ip net.IP) net.IP {
 type Input struct {
 	Domain string `json:"sni"`
 	IP     string `json:"ip"`
+	ScanAfter     string `json:"scan_after"`
+	Tag string `json:"tag"`
 }
 
-func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string) {
+func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string, scan_after string) {
 	var input Input
 	err := json.Unmarshal([]byte(line), &input)
 	if err != nil {
@@ -100,7 +104,22 @@ func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string) {
 		ipnet = &net.IPNet{IP: ip}
 	}
 	domain = input.Domain
+	scan_after = input.ScanAfter
+	tag = input.Tag
 	return
+}
+
+func checkScanAfter(ScanAfter string) int64 {
+	scanAfter, _ := strconv.ParseInt(ScanAfter, 0, 64)
+	log.Info("scanafter: ", scanAfter)
+	if scanAfter > 0 {
+		tnow := time.Now().Unix()
+		log.Info("time now: ", tnow)
+		if tnow < scanAfter {
+			return scanAfter - tnow
+		}
+	}
+	return 0
 }
 
 func InputTargetsNSQWriterFunc(nsqHost string) InputTargetsFunc {
@@ -110,7 +129,7 @@ func InputTargetsNSQWriterFunc(nsqHost string) InputTargetsFunc {
 }
 
 func InputTargetsNSQStream(nsqHost string, ch chan<- ScanTarget) error {
-	// Instantiate a consumer that will subscribe to the provided topic and channel.
+	// Instantiate a consumer that will subscribe to the provided channel.
 	consumer, err := nsq.NewConsumer(config.NSQInputTopic, "done", nsq.NewConfig())
 	if err != nil {
 		log.Fatal(err)
@@ -122,7 +141,10 @@ func InputTargetsNSQStream(nsqHost string, ch chan<- ScanTarget) error {
 	// See also AddConcurrentHandlers.
 	consumer.AddHandler(nsq.HandlerFunc(func(m *nsq.Message) error {
 		// handle the message
-		ipnet, domain, tag := parseInputLine(string(m.Body))
+		ipnet, domain, tag, scan_after := parseInputLine(string(m.Body))
+		tsleep := checkScanAfter(scan_after)
+		log.Info("Sleeping for: ", tsleep)
+		time.Sleep(time.Duration(tsleep) * time.Second)
 		var ip net.IP
 		if ipnet != nil {
 			if ipnet.Mask != nil {
