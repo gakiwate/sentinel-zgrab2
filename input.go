@@ -90,10 +90,11 @@ type Input struct {
 	Domain string `json:"sni"`
 	IP     string `json:"ip"`
 	ScanAfter     string `json:"scan_after"`
+	CertSHA1      string `json:"cert_sha1"`
 	Tag string `json:"tag"`
 }
 
-func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string, scan_after string) {
+func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string, scan_after string, cert_sha1 string) {
 	var input Input
 	err := json.Unmarshal([]byte(line), &input)
 	if err != nil {
@@ -105,6 +106,7 @@ func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string, s
 	}
 	domain = input.Domain
 	scan_after = input.ScanAfter
+	cert_sha1 = input.CertSHA1
 	tag = input.Tag
 	return
 }
@@ -141,7 +143,7 @@ func InputTargetsNSQStream(nsqHost string, ch chan<- ScanTarget) error {
 	// See also AddConcurrentHandlers.
 	consumer.AddHandler(nsq.HandlerFunc(func(m *nsq.Message) error {
 		// handle the message
-		ipnet, domain, tag, scan_after := parseInputLine(string(m.Body))
+		ipnet, domain, tag, scan_after, cert_sha1 := parseInputLine(string(m.Body))
 		tsleep := checkScanAfter(scan_after)
 		log.Info("Sleeping for: ", tsleep)
 		time.Sleep(time.Duration(tsleep) * time.Second)
@@ -156,7 +158,7 @@ func InputTargetsNSQStream(nsqHost string, ch chan<- ScanTarget) error {
 				ip = ipnet.IP
 			}
 		}
-		ch <- ScanTarget{IP: ip, Domain: domain, Tag: tag}
+		ch <- ScanTarget{IP: ip, Domain: domain, ScanAfter: scan_after, CertSHA1: cert_sha1, Tag: tag}
 		return nil
 	}))
 

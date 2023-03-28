@@ -1,6 +1,7 @@
 package zgrab2
 
 import (
+	"encoding/json"
 	"bufio"
 	"fmt"
 	"github.com/nsqio/go-nsq"
@@ -167,6 +168,7 @@ func OutputResultsNSQWriterFunc(topicName string, nsqHost string) OutputResultsF
 		return OutputNSQStream(topicName, nsqHost, result)
 	}
 }
+
 
 // Add a output to NSQ function
 func OutputNSQStream(topicName string, nsqHost string, results <-chan []byte) error {
