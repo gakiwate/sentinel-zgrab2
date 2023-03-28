@@ -1,7 +1,6 @@
 package zgrab2
 
 import (
-	"encoding/json"
 	"bufio"
 	"fmt"
 	"github.com/nsqio/go-nsq"
