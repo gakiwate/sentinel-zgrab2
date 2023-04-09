@@ -168,6 +168,7 @@ func OutputResultsNSQWriterFunc(topicName string, nsqHost string) OutputResultsF
 	}
 }
 
+
 // Add a output to NSQ function
 func OutputNSQStream(topicName string, nsqHost string, results <-chan []byte) error {
 	config := nsq.NewConfig()
