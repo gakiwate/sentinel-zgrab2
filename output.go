@@ -3,9 +3,10 @@ package zgrab2
 import (
 	"bufio"
 	"fmt"
+	"io"
+
 	"github.com/nsqio/go-nsq"
 	log "github.com/sirupsen/logrus"
-	"io"
 )
 
 // FlagMap is a function that maps a single-bit bitmask (i.e. a number of the
@@ -168,7 +169,6 @@ func OutputResultsNSQWriterFunc(topicName string, nsqHost string) OutputResultsF
 	}
 }
 
-
 // Add a output to NSQ function
 func OutputNSQStream(topicName string, nsqHost string, results <-chan []byte) error {
 	config := nsq.NewConfig()
@@ -178,6 +178,7 @@ func OutputNSQStream(topicName string, nsqHost string, results <-chan []byte) er
 		log.Fatal(err)
 	}
 	for result := range results {
+		log.Error("results: ", string(result))
 		err = producer.Publish(topicName, result)
 		if err != nil {
 			log.Fatal(err)
