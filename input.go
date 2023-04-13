@@ -8,10 +8,10 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
-	"strconv"
 
 	"github.com/nsqio/go-nsq"
 	log "github.com/sirupsen/logrus"
@@ -86,14 +86,19 @@ func duplicateIP(ip net.IP) net.IP {
 	return dup
 }
 
-type Input struct {
-	Domain string `json:"sni"`
-	IP     string `json:"ip"`
-	ScanAfter     string `json:"scan_after"`
-	Tag string `json:"tag"`
+type ZGrabMetadata struct {
+	ScanAfter string `json:"scan_after"`
+	CertSHA1  string `json:"cert_sha1"`
 }
 
-func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string, scan_after string) {
+type Input struct {
+	Domain   string        `json:"sni"`
+	IP       string        `json:"ip"`
+	Metadata ZGrabMetadata `json:"metadata"`
+	Tag      string        `json:"tag"`
+}
+
+func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string, metadata ZGrabMetadata) {
 	var input Input
 	err := json.Unmarshal([]byte(line), &input)
 	if err != nil {
@@ -104,7 +109,8 @@ func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string, s
 		ipnet = &net.IPNet{IP: ip}
 	}
 	domain = input.Domain
-	scan_after = input.ScanAfter
+	metadata = input.Metadata
+	log.Info("metadata sha1:  ", metadata.CertSHA1)
 	tag = input.Tag
 	return
 }
@@ -141,8 +147,9 @@ func InputTargetsNSQStream(nsqHost string, ch chan<- ScanTarget) error {
 	// See also AddConcurrentHandlers.
 	consumer.AddHandler(nsq.HandlerFunc(func(m *nsq.Message) error {
 		// handle the message
-		ipnet, domain, tag, scan_after := parseInputLine(string(m.Body))
-		tsleep := checkScanAfter(scan_after)
+		ipnet, domain, tag, metadata := parseInputLine(string(m.Body))
+		log.Info("metadata after parsing: ", metadata)
+		tsleep := checkScanAfter(metadata.ScanAfter)
 		log.Info("Sleeping for: ", tsleep)
 		time.Sleep(time.Duration(tsleep) * time.Second)
 		var ip net.IP
@@ -156,7 +163,7 @@ func InputTargetsNSQStream(nsqHost string, ch chan<- ScanTarget) error {
 				ip = ipnet.IP
 			}
 		}
-		ch <- ScanTarget{IP: ip, Domain: domain, Tag: tag}
+		ch <- ScanTarget{IP: ip, Domain: domain, Metadata: metadata, Tag: tag}
 		return nil
 	}))
 
