@@ -8,10 +8,10 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
-	"strconv"
 
 	"github.com/nsqio/go-nsq"
 	log "github.com/sirupsen/logrus"
@@ -87,11 +87,11 @@ func duplicateIP(ip net.IP) net.IP {
 }
 
 type Input struct {
-	Domain string `json:"sni"`
-	IP     string `json:"ip"`
-	ScanAfter     string `json:"scan_after"`
-	CertSHA1      string `json:"cert_sha1"`
-	Tag string `json:"tag"`
+	Domain    string `json:"sni"`
+	IP        string `json:"ip"`
+	ScanAfter string `json:"scan_after"`
+	CertSHA1  string `json:"cert_sha1"`
+	Tag       string `json:"tag"`
 }
 
 func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string, scan_after string, cert_sha1 string) {
@@ -145,8 +145,12 @@ func InputTargetsNSQStream(nsqHost string, ch chan<- ScanTarget) error {
 		// handle the message
 		ipnet, domain, tag, scan_after, cert_sha1 := parseInputLine(string(m.Body))
 		tsleep := checkScanAfter(scan_after)
-		log.Info("Sleeping for: ", tsleep)
-		time.Sleep(time.Duration(tsleep) * time.Second)
+		if tsleep > 0 {
+			m.RequeueWithoutBackoff(time.Duration(tsleep) * time.Second)
+			log.Info("Requeue-ing after %d seconds", tsleep)
+			return nil
+		}
+		log.Info("tsleep was %d (should be 0). Running ZGRAB now.", tsleep)
 		var ip net.IP
 		if ipnet != nil {
 			if ipnet.Mask != nil {
