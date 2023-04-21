@@ -110,7 +110,6 @@ func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string, m
 	}
 	domain = input.Domain
 	metadata = input.Metadata
-	log.Error("metadata sha1:  ", metadata.CertSHA1)
 	tag = input.Tag
 	return
 }
@@ -148,10 +147,12 @@ func InputTargetsNSQStream(nsqHost string, ch chan<- ScanTarget) error {
 	consumer.AddHandler(nsq.HandlerFunc(func(m *nsq.Message) error {
 		// handle the message
 		ipnet, domain, tag, metadata := parseInputLine(string(m.Body))
-		log.Error("metadata after parsing: ", metadata)
 		tsleep := checkScanAfter(metadata.ScanAfter)
-		log.Info("Sleeping for: ", tsleep)
-		time.Sleep(time.Duration(tsleep) * time.Second)
+		if tsleep > 0 {
+			m.RequeueWithoutBackoff(time.Duration(tsleep) * time.Second)
+			log.Info("Requeue-ing message with a delay of: ", tsleep)
+			return nil
+		}
 		var ip net.IP
 		if ipnet != nil {
 			if ipnet.Mask != nil {

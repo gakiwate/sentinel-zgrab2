@@ -12,12 +12,10 @@ import (
 
 // Grab contains all scan responses for a single host
 type Grab struct {
-	IP       string        `json:"ip,omitempty"`
-	Domain   string        `json:"domain,omitempty"`
-	Metadata ZGrabMetadata `json:"metadata,omitempty"`
-	// ScanAfter string                  `json:"scan_after,omitempty"`
-	// CertSHA1  string                  `json:"cert_sha1,omitempty"`
-	Data map[string]ScanResponse `json:"data,omitempty"`
+	IP       string                  `json:"ip,omitempty"`
+	Domain   string                  `json:"domain,omitempty"`
+	Metadata ZGrabMetadata           `json:"metadata,omitempty"`
+	Data     map[string]ScanResponse `json:"data,omitempty"`
 }
 
 // ScanTarget is the host that will be scanned
