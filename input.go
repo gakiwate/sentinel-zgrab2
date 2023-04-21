@@ -116,10 +116,8 @@ func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string, m
 
 func checkScanAfter(ScanAfter string) int64 {
 	scanAfter, _ := strconv.ParseInt(ScanAfter, 0, 64)
-	log.Info("scanafter: ", scanAfter)
 	if scanAfter > 0 {
 		tnow := time.Now().Unix()
-		log.Info("time now: ", tnow)
 		if tnow < scanAfter {
 			return scanAfter - tnow
 		}

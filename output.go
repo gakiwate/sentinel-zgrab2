@@ -169,7 +169,6 @@ func OutputResultsNSQWriterFunc(topicName string, nsqHost string) OutputResultsF
 	}
 }
 
-
 // Add a output to NSQ function
 func OutputNSQStream(topicName string, nsqHost string, results <-chan []byte) error {
 	config := nsq.NewConfig()
@@ -179,7 +178,6 @@ func OutputNSQStream(topicName string, nsqHost string, results <-chan []byte) er
 		log.Fatal(err)
 	}
 	for result := range results {
-		log.Error("results: ", string(result))
 		err = producer.Publish(topicName, result)
 		if err != nil {
 			log.Fatal(err)
