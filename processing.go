@@ -22,8 +22,8 @@ type Grab struct {
 type ScanTarget struct {
 	IP       net.IP
 	Domain   string
-	Tag      string
 	Metadata ZGrabMetadata
+	Tag      string
 	Port     *uint
 }
 
