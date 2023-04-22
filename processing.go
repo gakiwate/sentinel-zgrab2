@@ -12,17 +12,19 @@ import (
 
 // Grab contains all scan responses for a single host
 type Grab struct {
-	IP     string                  `json:"ip,omitempty"`
-	Domain string                  `json:"domain,omitempty"`
-	Data   map[string]ScanResponse `json:"data,omitempty"`
+	IP       string                  `json:"ip,omitempty"`
+	Domain   string                  `json:"domain,omitempty"`
+	Metadata ZGrabMetadata           `json:"metadata,omitempty"`
+	Data     map[string]ScanResponse `json:"data,omitempty"`
 }
 
 // ScanTarget is the host that will be scanned
 type ScanTarget struct {
-	IP     net.IP
-	Domain string
-	Tag    string
-	Port   *uint
+	IP       net.IP
+	Domain   string
+	Metadata ZGrabMetadata
+	Tag      string
+	Port     *uint
 }
 
 func (target ScanTarget) String() string {
@@ -121,10 +123,12 @@ func BuildGrabFromInputResponse(t *ScanTarget, responses map[string]ScanResponse
 	if t.IP != nil {
 		ipstr = t.IP.String()
 	}
+
 	return &Grab{
-		IP:     ipstr,
-		Domain: t.Domain,
-		Data:   responses,
+		IP:       ipstr,
+		Domain:   t.Domain,
+		Metadata: t.Metadata,
+		Data:     responses,
 	}
 }
 

@@ -8,8 +8,10 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/nsqio/go-nsq"
 	log "github.com/sirupsen/logrus"
@@ -84,12 +86,19 @@ func duplicateIP(ip net.IP) net.IP {
 	return dup
 }
 
-type Input struct {
-	Domain string `json:"sni"`
-	IP     string `json:"ip"`
+type ZGrabMetadata struct {
+	ScanAfter string `json:"scan_after"`
+	CertSHA1  string `json:"cert_sha1"`
 }
 
-func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string) {
+type Input struct {
+	Domain   string        `json:"sni"`
+	IP       string        `json:"ip"`
+	Metadata ZGrabMetadata `json:"metadata"`
+	Tag      string        `json:"tag"`
+}
+
+func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string, metadata ZGrabMetadata) {
 	var input Input
 	err := json.Unmarshal([]byte(line), &input)
 	if err != nil {
@@ -100,7 +109,20 @@ func parseInputLine(line string) (ipnet *net.IPNet, domain string, tag string) {
 		ipnet = &net.IPNet{IP: ip}
 	}
 	domain = input.Domain
+	metadata = input.Metadata
+	tag = input.Tag
 	return
+}
+
+func checkScanAfter(ScanAfter string) int64 {
+	scanAfter, _ := strconv.ParseInt(ScanAfter, 0, 64)
+	if scanAfter > 0 {
+		tnow := time.Now().Unix()
+		if tnow < scanAfter {
+			return scanAfter - tnow
+		}
+	}
+	return 0
 }
 
 func InputTargetsNSQWriterFunc(nsqHost string) InputTargetsFunc {
@@ -110,7 +132,7 @@ func InputTargetsNSQWriterFunc(nsqHost string) InputTargetsFunc {
 }
 
 func InputTargetsNSQStream(nsqHost string, ch chan<- ScanTarget) error {
-	// Instantiate a consumer that will subscribe to the provided topic and channel.
+	// Instantiate a consumer that will subscribe to the provided channel.
 	consumer, err := nsq.NewConsumer(config.NSQInputTopic, "done", nsq.NewConfig())
 	if err != nil {
 		log.Fatal(err)
@@ -122,7 +144,13 @@ func InputTargetsNSQStream(nsqHost string, ch chan<- ScanTarget) error {
 	// See also AddConcurrentHandlers.
 	consumer.AddHandler(nsq.HandlerFunc(func(m *nsq.Message) error {
 		// handle the message
-		ipnet, domain, tag := parseInputLine(string(m.Body))
+		ipnet, domain, tag, metadata := parseInputLine(string(m.Body))
+		tsleep := checkScanAfter(metadata.ScanAfter)
+		if tsleep > 0 {
+			m.RequeueWithoutBackoff(time.Duration(tsleep) * time.Second)
+			log.Info("Requeue-ing message with a delay of: ", tsleep)
+			return nil
+		}
 		var ip net.IP
 		if ipnet != nil {
 			if ipnet.Mask != nil {
@@ -134,7 +162,7 @@ func InputTargetsNSQStream(nsqHost string, ch chan<- ScanTarget) error {
 				ip = ipnet.IP
 			}
 		}
-		ch <- ScanTarget{IP: ip, Domain: domain, Tag: tag}
+		ch <- ScanTarget{IP: ip, Domain: domain, Metadata: metadata, Tag: tag}
 		return nil
 	}))
 

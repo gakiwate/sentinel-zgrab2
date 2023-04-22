@@ -3,9 +3,10 @@ package zgrab2
 import (
 	"bufio"
 	"fmt"
+	"io"
+
 	"github.com/nsqio/go-nsq"
 	log "github.com/sirupsen/logrus"
-	"io"
 )
 
 // FlagMap is a function that maps a single-bit bitmask (i.e. a number of the
