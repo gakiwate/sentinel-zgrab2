@@ -89,6 +89,7 @@ func duplicateIP(ip net.IP) net.IP {
 type ZGrabMetadata struct {
 	ScanAfter string `json:"scan_after"`
 	CertSHA1  string `json:"cert_sha1"`
+	CertType  string `json:"cert_type"`
 }
 
 type Input struct {
